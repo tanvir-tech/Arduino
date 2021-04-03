@@ -1,7 +1,7 @@
 # Arduino IDE at Linux
 
-sudo usermod -a -G dialout USERNAME
+sudo usermod -a -G dialout USERNAME,
 
-,
 
-sudo chmod a+rw /dev/ttyUSB0
+# Linux USB serial communication permission :
+                                                  sudo chmod a+rw /dev/ttyUSB0
