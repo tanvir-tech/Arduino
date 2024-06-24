@@ -1,0 +1,141 @@
+#include <ESP8266WiFi.h>
+#include <WiFiUdp.h>
+#include <NTPClient.h>
+#include <TimeLib.h>
+#include <LiquidCrystal_I2C.h>
+
+// SCL-D1
+// SDA-D2
+
+const int ledPin = 2; //D2
+// Set the LCD number of columns and rows
+int lcdColumns = 16;
+int lcdRows = 2;
+
+// Set LCD address, number of columns and rows
+// If you don't know your display address, run an I2C scanner sketch
+LiquidCrystal_I2C lcd(0x3F, lcdColumns, lcdRows);
+
+char* ssid = "Tanvir WiFi";   // Replace with your WiFi SSID
+char* password = "****************";  // Replace with your WiFi password
+
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP, "asia.pool.ntp.org", 21600, 60000);
+
+char Time[] = "TIME:00:00:00";
+char Date[] = "DATE:00/00/2000";
+byte last_second, second_, minute_, hour_, day_, month_;
+int year_;
+String daysOfWeek[7] = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" };
+int currentDay;
+
+unsigned long lastMsgTime = 0;
+const unsigned long msgInterval = 1200000;  // Interval for message (20 minutes in milliseconds)
+const char* eyeProtectionMessage1 = "-----Break!-----";
+const char* eyeProtectionMessage2 = "Look away 20sec";
+
+void setup() {
+  Serial.begin(115200);
+  lcd.init();       // Initialize LCD
+  lcd.backlight();  // Turn on backlight
+
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print(eyeProtectionMessage1);
+  lcd.setCursor(0, 1);
+  lcd.print(eyeProtectionMessage2);
+
+  pinMode(ledPin, OUTPUT);
+
+
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting to WiFi.");
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("connected");
+
+  timeClient.begin();
+
+  timeClient.update();
+  currentDay = timeClient.getDay();
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print(daysOfWeek[currentDay]);
+  
+  // Blink the LED
+  digitalWrite(ledPin, HIGH);
+  delay(500);
+  digitalWrite(ledPin, LOW);
+  delay(5000);
+  digitalWrite(ledPin, HIGH);
+  delay(500);
+  digitalWrite(ledPin, LOW);
+
+  lcd.clear();
+}
+
+void loop() {
+  timeClient.update();
+
+  currentDay = timeClient.getDay();
+
+  unsigned long unix_epoch = timeClient.getEpochTime();  // Get Unix epoch time from NTP server
+
+  second_ = second(unix_epoch);
+  if (last_second != second_) {
+    minute_ = minute(unix_epoch);
+    hour_ = hour(unix_epoch);
+    day_ = day(unix_epoch);
+    month_ = month(unix_epoch);
+    year_ = year(unix_epoch);
+
+    Time[12] = second_ % 10 + 48;
+    Time[11] = second_ / 10 + 48;
+    Time[9] = minute_ % 10 + 48;
+    Time[8] = minute_ / 10 + 48;
+    Time[6] = hour_ % 10 + 48;
+    Time[5] = hour_ / 10 + 48;
+
+    Date[5] = day_ / 10 + 48;
+    Date[6] = day_ % 10 + 48;
+    Date[8] = month_ / 10 + 48;
+    Date[9] = month_ % 10 + 48;
+    Date[13] = (year_ / 10) % 10 + 48;
+    Date[14] = year_ % 10 + 48;
+
+    Serial.println(Time);
+    Serial.println(Date);
+
+    lcd.setCursor(0, 0);
+    lcd.print(Time);
+    lcd.setCursor(0, 1);
+    lcd.print(Date);
+
+    // Check if it's time to display the eye protection message
+    if (millis() - lastMsgTime > msgInterval) {
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print(eyeProtectionMessage1);
+      lcd.setCursor(0, 1);
+      lcd.print(eyeProtectionMessage2);
+      lastMsgTime = millis();
+      // Blink the LED
+      digitalWrite(ledPin, HIGH);
+      delay(500);
+      digitalWrite(ledPin, LOW);
+      delay(25000);
+      digitalWrite(ledPin, HIGH);
+      delay(500);
+      digitalWrite(ledPin, LOW);
+
+      lcd.clear();
+    }
+
+    last_second = second_;
+  }
+
+  delay(1000);
+}
